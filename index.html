@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Collections Dashboard</title>
+<style>
+  :root{
+    color-scheme: light;
+    --bg: #F5F6F5;
+    --panel: #FFFFFF;
+    --ink: #1B2430;
+    --ink-soft: #5A6472;
+    --line: #E2E5E4;
+    --teal: #0E5C4E;
+    --teal-soft: #E4F0EC;
+    --amber: #B8791E;
+    --amber-soft: #FBF0DC;
+    --red: #A5333F;
+    --red-soft: #F8E4E5;
+    --blue: #2E5C8A;
+    --blue-soft: #E8EEF5;
+    --gray-soft: #EEF0EF;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; background:var(--bg); }
+  #dash-root{
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;
+    background:var(--bg);
+    color:var(--ink);
+    padding:24px;
+    min-height:100vh;
+  }
+  .sr-only{ position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+  .dash-header{
+    display:flex; align-items:baseline; justify-content:space-between;
+    margin-bottom:20px; flex-wrap:wrap; gap:12px;
+  }
+  .dash-title{
+    font-family:Georgia,'Times New Roman',serif; font-weight:600; font-size:28px; letter-spacing:-0.01em;
+  }
+  .dash-sub{ color:var(--ink-soft); font-size:13px; margin-top:2px; }
+  .snapshot-badge{
+    display:inline-block; font-size:11px; font-weight:600; letter-spacing:.04em; text-transform:uppercase;
+    background:var(--blue-soft); color:var(--blue); padding:6px 12px; border-radius:20px;
+  }
+  .stat-row{ display:grid; grid-template-columns:repeat(auto-fit, minmax(150px,1fr)); gap:12px; margin-bottom:20px; }
+  .stat-card{
+    background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px 16px;
+  }
+  .stat-label{ font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-soft); font-weight:600; }
+  .stat-value{ font-family:'Courier New',monospace; font-size:22px; font-weight:600; margin-top:4px; }
+  .stat-value.pos{ color:var(--teal); }
+  .stat-value.neg{ color:var(--red); }
+  .section-label{ font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-soft); font-weight:600; margin:2px 2px 8px; }
+  .toolbar{ display:flex; gap:10px; margin-bottom:14px; flex-wrap:wrap; align-items:center; }
+  .toolbar input[type=text], .toolbar select{
+    font-family:inherit; font-size:13px; padding:8px 10px; border:1px solid var(--line);
+    border-radius:8px; background:var(--panel); color:var(--ink);
+  }
+  .toolbar input[type=text]{ min-width:220px; }
+  .spacer{ flex:1; }
+  .result-count{ font-size:12.5px; color:var(--ink-soft); }
+  .table-wrap{ background:var(--panel); border:1px solid var(--line); border-radius:12px; overflow:auto; }
+  table{ width:100%; border-collapse:collapse; font-size:12.5px; min-width:1300px; }
+  thead th{
+    position:sticky; top:0; background:#FAFAF9; text-align:left; padding:10px 8px;
+    font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft);
+    border-bottom:1px solid var(--line); white-space:nowrap; font-weight:600;
+  }
+  tbody td{ padding:8px; border-bottom:1px solid var(--line); vertical-align:top; }
+  tbody tr:hover{ background:#FAFBFA; }
+  tbody tr.sev-legal{ border-left:3px solid var(--red); }
+  tbody tr.sev-warning{ border-left:3px solid var(--amber); }
+  tbody tr.sev-ok{ border-left:3px solid var(--teal); }
+  tbody tr.sev-info{ border-left:3px solid var(--blue); }
+  tbody tr.sev-neutral{ border-left:3px solid #C7CBC9; }
+  .col-name{ min-width:170px; font-weight:600; }
+  .col-notes{ min-width:220px; color:var(--ink-soft); }
+  .col-num{ text-align:right; font-family:'Courier New',monospace; white-space:nowrap; }
+  .baldue{ font-family:'Courier New',monospace; font-weight:600; text-align:right; white-space:nowrap; }
+  .baldue.neg{ color:var(--red); }
+  .badge{ display:inline-block; font-size:10.5px; font-weight:600; padding:2px 7px; border-radius:20px; white-space:nowrap; }
+  .badge.legal{ background:var(--red-soft); color:var(--red); }
+  .badge.warning{ background:var(--amber-soft); color:var(--amber); }
+  .badge.ok{ background:var(--teal-soft); color:var(--teal); }
+  .badge.info{ background:var(--blue-soft); color:var(--blue); }
+  .badge.neutral{ background:var(--gray-soft); color:var(--ink-soft); }
+  .empty-state{ padding:40px; text-align:center; color:var(--ink-soft); }
+</style>
+</head>
+<body>
+<h2 class="sr-only">Collections dashboard: read-only weekly snapshot of job balances, statuses, and notes, with market and aging breakdowns and filtering.</h2>
+<div id="dash-root">
+  <div class="dash-header">
+    <div>
+      <div class="dash-title">Collections Dashboard</div>
+      <div class="dash-sub" id="snapshotLine">Weekly snapshot</div>
+    </div>
+    <div class="snapshot-badge" id="snapshotBadge">Snapshot</div>
+  </div>
+  <div class="stat-row" id="statRow"></div>
+  <div class="section-label">Balance Due by Market</div>
+  <div class="stat-row" id="marketRow"></div>
+  <div class="section-label">Balance Due by Age (from contract date)</div>
+  <div class="stat-row" id="agingRow"></div>
+  <div class="toolbar">
+    <input type="text" id="searchBox" placeholder="Search name, job #, notes…">
+    <select id="marketFilter"></select>
+    <select id="categoryFilter"></select>
+    <div class="spacer"></div>
+    <div class="result-count" id="resultCount"></div>
+  </div>
+  <div class="table-wrap">
+    <table id="jobsTable">
+      <thead>
+        <tr>
+          <th class="col-name">Name</th><th>Job #</th><th>Market</th><th>Contract Date</th>
+          <th>Status</th><th>Gross $</th><th>Total Paid</th><th>Bal Due</th>
+          <th>Collections Category</th><th>Responsibility</th><th>Next Action</th><th class="col-notes">Notes</th>
+        </tr>
+      </thead>
+      <tbody id="jobsBody"></tbody>
+    </table>
+  </div>
+</div>
+<script>
+(function(){
+  // ---- Update this block each week, then re-upload index.html to GitHub ----
+  const SNAPSHOT_DATE = "2026-07-07";
+  const SEED_JOBS = [
+    ["Alexander, Robert","15568","Orlando","2026-03-26","Permit Done/Waiting4Materials",5900,2950,"Awaiting Materials","Warehouse","process in warehouse, update cust w/timeline, process per SOP","had to remeasure, still waiting on materials"],
+    ["Andino Reyes, Carlos","15495","Orlando","2026-03-13","Ready for Schedule",19000,9500,"Scheduled/Awaiting Completion for Payment","","","Scheduled 7/1-7/2"],
+    ["Bible, Rick","15457","Orlando","2026-03-11","Install Paused",13987,13488,"Service Required/Materials Ordered","","","Holdback for defective window balancer. Will schedule when parts are delivered."],
+    ["Brown, Richard","15293","Orlando","2026-02-19","Legal",13000,6500,"Legal","Legal","","LEGAL"],
+    ["Burbank, LeRoy","15558","Orlando","2026-03-19","Permit Done/Waiting4Materials",14287,0,"Delayed Job (cust out of town)","Customer","","Cust won't be back until Oct"],
+    ["Bylsma, Christopher","15110","Orlando","2026-01-28","Ready for Install",25663,22831.50,"Service Required/Need to Order Materials","Service","","Holdback: 5 windows with grids, supposed to be no-grid"],
+    ["Che, Hoang Oanh","15381","Orlando","2026-03-02","Permit Done/Waiting4Materials",13888,6944,"","","","5/22: husband died, wife unsure how to proceed — someone needs to call"],
+    ["Cooks Johnson, Stefannie","15566","Orlando","2026-03-24","Permit Done/Waiting4Materials",17887,0,"HOA Delay","Sales","Send to George/Sales to update status","Cust issues with HOA and install, emailed Matt C 6/29"],
+    ["Feinberg, Robin R.","15478","Orlando","2026-03-14","Needs HOA Approval",43100,21550,"HOA Delay","Sales","","Needs HOA approval"],
+    ["George, Tami","15374","Orlando","2026-03-02","Permit Done/Waiting4Materials",12260,6130,"Scheduled/Awaiting Completion for Payment","","","Install completed 6/29"],
+    ["Gibson, Rustina","15075","Orlando","2026-01-24","Permit Done/Waiting4Materials",17821,8910.50,"Awaiting Materials","","","6/16 reordered 2W"],
+    ["Gordon, Kari Sioux","15498","Orlando","2026-03-17","Permit Done/Waiting4Materials",27500,13750,"HOA Delay","Sales","","Permit issues, may be waiting on HOA before scheduling"],
+    ["Hamilton, Carole","15511","Orlando","2026-03-18","Permit Done/Waiting4Materials",15500,8750,"Awaiting Materials","","","Combo door ordered - custom size - ETA 7/15"],
+    ["Hatten, Lynne","14972","Orlando","2026-01-13","Install Paused",16000,15000,"Service Required, Delayed Job","Customer","","Holdback for siding, cust out of town until fall"],
+    ["Hayward, Lynn","15133","Orlando","2026-01-31","Uploaded NTBO",24787,12393.50,"Delayed Job (cust out of town)","Customer","","Installed 6/27"],
+    ["Kelly, Lucy","15218","Orlando","2026-02-11","Ordered/Ready for Permitting",5000,2500,"Awaiting Materials","","","6/29 ordered"],
+    ["Lamoreaux, Matthew","15530","Orlando","2026-03-21","Ready for Install",25287,9450,"Scheduled/Awaiting Completion for Payment","","","Installed 6/26"],
+    ["Lombardo, Dennis","15173","Orlando","2026-02-06","Service Parts Ordered",30000,27000,"Service Required","Production","","Cust cancelled 6/30 service appt, needs rescheduled"],
+    ["Millsaps, Jane","15439","Orlando","2026-03-09","Ordered/Ready for Permitting",26000,13000,"Awaiting Materials","","","HOA approval 6/12, materials ordered 6/17"],
+    ["Santana, Marcus","15496","Orlando","2026-03-14","Ordered/Ready for Permitting",25633,12816.50,"Scheduled/Awaiting Completion for Payment","","","Scheduled 6/30-7/2"],
+    ["Sley, George","15609","Orlando","2026-03-31","Permit Done/Waiting4Materials",11287,7984.50,"Scheduled/Awaiting Completion for Payment","","","Rescheduled 7/2"],
+    ["Stewart, David","14910","Orlando","2026-01-07","Permit Done/Waiting4Materials",124000,62000,"Scheduled/Awaiting Completion for Payment","","","Scheduled 6/29-7/2"],
+    ["Vardiman, John","15534","Orlando","2026-03-19","Ordered/Ready for Permitting",20487,10243.50,"Awaiting Materials","","","6/23 quote uploaded/ordered"],
+    ["Webster, Ron","15518","Orlando","2026-03-18","Permit Done/Waiting4Materials",65000,59000,"Customer Withholding Payment","Accounting","","Issues collecting $6,000 balance, Dario involved"],
+    ["Bucher, Michael","15577","SE FL","2026-03-26","Needs HOA Approval",13868,4798,"HOA Delay","Sales","","Needs HOA approval"],
+    ["Felton, William","15612","SE FL","2026-03-31","Permit Done/Waiting4Materials",9799,4899.50,"","","","6/24: not ready until maybe August, had to resubmit plans"],
+    ["Roof, Carl","15453","SE FL","2026-03-11","Permit Needs Revisions",21829,10914.50,"Waiting on Permit","Permitting","","Permit needs revisions"],
+    ["Glaum (MW), Mark","15572","St. Pete","2026-03-26","Applied for Permit",12846,6423,"Scheduled/Awaiting Completion for Payment","Accounting","","Installed 6/26"],
+    ["Parent, Kent","15614","St. Pete","2026-03-31","Applied for Permit",13887,6943.50,"Scheduled/Awaiting Completion for Payment","Accounting","","Installed/paid wk of 6/22, awaiting deposit to clear"],
+    ["Volpe, Maureen","15098","St. Pete","2026-01-27","Completed + Unpaid/Partial",15000,14432,"Service Required","Production","","Holdback for painting, asked Matt for update"],
+    ["Williams, David","14967","St. Pete","2026-01-12","Install Complete",7981,6000,"Scheduled/Awaiting Completion for Payment","Accounting","","Collected balance 6/29"],
+    ["Hardeman, Cindy","15536","St. Pete","2026-03-23","Install Complete",17814,8905.50,"Scheduled/Awaiting Completion for Payment","Accounting","","Installed 6/26"],
+    ["Soule, Anita","15412","St. Pete","2026-03-05","Install Started",50000,49500,"Service Required/Need to Order Materials","Production","","Bathroom window needs to be obscure - holdback"],
+    ["Rivera, Richard","15586","St. Pete","2026-03-23","Install Started/Awaiting Parts",24700,22525,"Service Required","Service","","Svc scheduled 7/3"],
+    ["OLeary, Kathleen","14927","St. Pete","2026-01-07","Legal",18708,9354,"Legal","Legal","","LEGAL"],
+    ["Hall, Sandy","15322","St. Pete","2026-02-24","Legal",11800,5900,"Legal","Legal","","LEGAL"],
+    ["Gutierrez, Ruben","15504","St. Pete","2026-03-18","Legal",19698,0,"Legal","Legal","","LEGAL"],
+    ["Williams, Joel","15575","St. Pete","2026-03-27","Materials Received | No Permit",54160,40000,"Delayed Job (cust out of town)","Customer","","Partial collections, waiting on install of remaining windows"],
+    ["Bernard, Tim","15844","St. Pete","2026-02-02","Materials Received | Partial",66500,0,"Deposit Needed","Sales","","Home not built, deposit not yet pulled"],
+    ["Tanner, Susan","15378","St. Pete","2026-02-27","Materials Received | Partial",22200,11100,"Awaiting Materials","","","6/29 storm door order sent to HD"],
+    ["Alessandrini, Bernie","14887","St. Pete","2026-01-02","Materials Received In Full",15580,7790,"Scheduled/Awaiting Completion for Payment","","","Install wk 6/29"],
+    ["Garvin (MW), Emily & Terry","15574","St. Pete","2026-03-28","Materials Received In Full",6570,3285,"Waiting on Permit","Permitting","","Waiting on permit, just received NOC/NTBO 6/29"],
+    ["Mynchenko, Yan","15190","St. Pete","2026-02-07","Needs HOA Approval",12300,7845,"HOA Delay","Sales","","Pending HOA approval"],
+    ["Bohen, Suz","15562","St. Pete","2026-03-25","Needs HOA Approval",23000,11500,"HOA Delay","Sales","","Needs HOA approval"],
+    ["Kelley, Julie","15595","St. Pete","2026-03-30","Needs HOA Approval",15178,7589,"HOA Delay","Sales","","Needs HOA approval"],
+    ["Craig, Albert","NEW","St. Pete","2026-03-27","Onboarding",26500,0,"Deposit Needed","Sales","","Stuck in onboarding, waiting on deposit per George"],
+    ["Hardison, Frances Kai","15329","St. Pete","2026-02-25","Ordered/Ready for Permitting",15940,7970,"Scheduled/Awaiting Completion for Payment","","","Scheduled 7/21-7/23, Elite team"],
+    ["Sallitto (MW), Sean","15486","St. Pete","2026-03-09","Ordered/Ready for Permitting",5689,2844.50,"Awaiting Materials","","","Had to reorder"],
+    ["Ward (MW), Nigel","15626","St. Pete","2026-03-09","Ordered/Ready for Permitting",39935,19967.50,"","","","Cust home burnt down, not sure next steps, emailed Todd (MR Window job)"],
+    ["Lang, Sharon & Paul","14906","St. Pete","2026-01-05","Permit Done/Waiting4Materials",20000,10000,"Awaiting Materials","Purchasing","","6/3 emailed Deb at T&C re: missing 3 LS + 2 pic windows"],
+    ["Varco, June","15212","St. Pete","2026-02-11","Permit Done/Waiting4Materials",15700,8250,"Customer Unresponsive","","","Cust passed away, reached out to team re: next steps"],
+    ["Mcmillan, Debra","15248","St. Pete","2026-02-12","Permit Done/Waiting4Materials",28800,14350,"HOA Delay","Sales","","Elite job, work changed to satisfy HOA, status unclear"],
+    ["Kontny (MW), Todd","15276","St. Pete","2026-02-20","Permit Done/Waiting4Materials",47766,18883,"Service Required/Materials Ordered","Production","","Several punch list items, SP rcvd hardware from VQ 6/23"],
+    ["Ross, Greg","15312","St. Pete","2026-02-23","Permit Done/Waiting4Materials",50000,25000,"Scheduled/Awaiting Completion for Payment","Production","","Scheduled 7/14-7/15"],
+    ["Zizert, Lyla","15392","St. Pete","2026-03-04","Permit Done/Waiting4Materials",7890,5445,"Ready to Schedule","Production","","Needs scheduled"],
+    ["Koboldt, Carol","15516","St. Pete","2026-03-18","Permit Done/Waiting4Materials",13700,6113,"Scheduled/Awaiting Completion for Payment","Production","","Scheduled 7/15"],
+    ["Brown, David","15527","St. Pete","2026-03-20","Permit Done/Waiting4Materials",13000,6500,"Legal","Legal","","LEGAL"],
+    ["Morgan, Elizabeth","15580","St. Pete","2026-03-26","Permit Done/Waiting4Materials",15701,14350.50,"Payment Collected","Accounting","","Check received from svc appointment, being deposited"],
+    ["Tillman, Jack","15576","St. Pete","2026-03-26","Permit Done/Waiting4Materials",45232,22616,"Awaiting Materials","","","Waiting on materials, likely wk of 7/6"],
+    ["Kouros, Chris","15285","St. Pete","2026-02-17","Permit Needs Revisions",18000,20000,"Waiting on Permit","Permitting","","6/24: Fire review complete, pending PP + Structural review"],
+    ["Quick, Alfred","15410","St. Pete","2026-03-04","Permit Needs Revisions",13844,6922,"Waiting on Permit","Permitting","","6/22 hurricane permit pending"],
+    ["Bauer, Steve","15434","St. Pete","2026-03-09","Permit Needs Revisions",14406,7203,"Customer Withholding Payment","Permitting","","Installed 6/29, won't pay until inspection passed"],
+    ["Rustad, Robert","15582","St. Pete","2026-03-27","Permit Needs Revisions",15500,7750,"Scheduled/Awaiting Completion for Payment","Accounting","","Installed 6/29"],
+    ["Atkins, Patricia","15383","St. Pete","2026-03-02","Permit Revisions Submitted",43441,41441,"Service Required/Materials Ordered","Production","","Waiting on glass insert for DR and S/L"],
+    ["Cook, Heidi","15473","St. Pete","2026-03-13","Permit Revisions Submitted",68000,66000,"Service Required/Materials Ordered","Production","","Waiting on 2 sashes to collect holdback"],
+    ["Keiran, Alan","15049","St. Pete","2026-01-21","Ready for Install",99500,91500,"Scheduled/Awaiting Completion for Payment","Accounting","","Installed 6/26"],
+    ["Kennedy, Eileen","15287","St. Pete","2026-02-19","Ready for Install",18500,9250,"HOA Delay","Sales","","Needs HOA approval (needed physical permit)"],
+    ["Cinelli, Nick","15349","St. Pete","2026-02-27","Ready for Install",29999,14999.50,"Scheduled/Awaiting Completion for Payment","Accounting","","Svc set to fund 7/7"],
+    ["Beckman, Jeffrey","15396","St. Pete","2026-03-04","Ready for Install",4100,2050,"Service Required","Production","","Door frame installed poorly, emailed Matt C 6/29"],
+    ["Florio, Nick","15503","St. Pete","2026-03-16","Ready for Install",36000,33000,"Service Required/Materials Ordered","Production","","Re-ordered both doors for this job"],
+    ["Jesberger, James","15523","St. Pete","2026-03-20","Ready for Install",13500,6750,"Service Required","Production","","6/24 SP rcvd 3 sashes from VQ"],
+    ["Pac, Mike","15544","St. Pete","2026-03-23","Ready for Install",45000,25000,"Awaiting Materials","","","Ordered 6/12"],
+    ["Carpenter, Susan","15597","St. Pete","2026-03-30","Ready for Install",15114,7557,"Ready to Schedule","Production","","6/26 SP rcvd 1 SGD from ES"],
+    ["Gartside, Sue","15269","St. Pete","2026-02-18","Window Order",14500,7250,"Delayed Job (cust out of town)","Purchasing","","Order in Sept/Oct, cust won't return until December"],
+    ["Graber, Paul","15429","St. Pete","2026-03-09","Window Order",20500,10250,"Delayed Job (cust out of town)","Purchasing","","Not ordering until Sept, install Oct"],
+    ["Gelhar, Cyndee","15608","St. Pete","2026-03-31","Window Order",6000,0,"Delayed Job (cust out of town)","Purchasing","","Do not order until November"]
+  ].map((r,i)=>({
+    id:'j_'+i, name:r[0], jobNumber:r[1], market:r[2], contractDate:r[3], status:r[4],
+    gross:r[5], paid:r[6], collectionsCategory:r[7], responsibility:r[8], nextAction:r[9], notes:r[10]
+  }));
+  // ---- End weekly-update block ----
+
+  const jobs = SEED_JOBS;
+  let filters = { search:'', market:'ALL', category:'ALL' };
+
+  const money = n => (isNaN(n)?0:n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const moneyShort = n => Math.round(n).toLocaleString('en-US');
+
+  function severity(cat){
+    const c = (cat||'').toLowerCase();
+    if(c.includes('legal')) return 'legal';
+    if(c.includes('hoa')||c.includes('withholding')||c.includes('unresponsive')||c.includes('deposit needed')||c.includes('delayed')) return 'warning';
+    if(c.includes('scheduled')||c.includes('payment collected')||c.includes('ready to schedule')) return 'ok';
+    if(c.includes('waiting on permit')) return 'info';
+    if(c==='') return 'neutral';
+    return 'warning';
+  }
+  function badgeLabel(cat){ return cat && cat.trim() ? cat : '—'; }
+  function escapeHtml(s){
+    return String(s===undefined||s===null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+  function daysSince(dateStr){
+    if(!dateStr) return null;
+    const d = new Date(dateStr + 'T00:00:00');
+    if(isNaN(d.getTime())) return null;
+    const asOf = new Date(SNAPSHOT_DATE + 'T00:00:00');
+    return Math.floor((asOf - d) / 86400000);
+  }
+  function filteredJobs(){
+    return jobs.filter(j=>{
+      if(filters.market!=='ALL' && j.market!==filters.market) return false;
+      if(filters.category!=='ALL' && j.collectionsCategory!==filters.category) return false;
+      if(filters.search){
+        const s = filters.search.toLowerCase();
+        if(!(j.name.toLowerCase().includes(s) || String(j.jobNumber).toLowerCase().includes(s) || (j.notes||'').toLowerCase().includes(s))) return false;
+      }
+      return true;
+    });
+  }
+  function marketOptions(){ return ['ALL', ...Array.from(new Set(jobs.map(j=>j.market))).sort()]; }
+  function categoryOptions(){ return ['ALL', ...Array.from(new Set(jobs.map(j=>j.collectionsCategory).filter(Boolean))).sort()]; }
+
+  function renderStats(){
+    const list = filteredJobs();
+    const gross = list.reduce((a,j)=>a+(+j.gross||0),0);
+    const paid = list.reduce((a,j)=>a+(+j.paid||0),0);
+    const bal = gross - paid;
+    document.getElementById('statRow').innerHTML = `
+      <div class="stat-card"><div class="stat-label">Jobs</div><div class="stat-value">${list.length}</div></div>
+      <div class="stat-card"><div class="stat-label">Gross $</div><div class="stat-value">${moneyShort(gross)}</div></div>
+      <div class="stat-card"><div class="stat-label">Total Paid</div><div class="stat-value pos">${moneyShort(paid)}</div></div>
+      <div class="stat-card"><div class="stat-label">Bal Due</div><div class="stat-value ${bal>0?'neg':''}">${moneyShort(bal)}</div></div>
+    `;
+    const markets = Array.from(new Set(list.map(j=>j.market).filter(Boolean))).sort();
+    document.getElementById('marketRow').innerHTML = markets.length ? markets.map(m=>{
+      const mBal = list.filter(j=>j.market===m).reduce((a,j)=>a+((+j.gross||0)-(+j.paid||0)),0);
+      return `<div class="stat-card"><div class="stat-label">${escapeHtml(m)}</div><div class="stat-value ${mBal>0?'neg':''}">${moneyShort(mBal)}</div></div>`;
+    }).join('') : `<div class="stat-card"><div class="stat-label">—</div><div class="stat-value">0</div></div>`;
+
+    let b90_180=0, b180_360=0, bOver360=0;
+    list.forEach(j=>{
+      const days = daysSince(j.contractDate);
+      if(days===null) return;
+      const b = (+j.gross||0) - (+j.paid||0);
+      if(days>=90 && days<180) b90_180 += b;
+      else if(days>=180 && days<360) b180_360 += b;
+      else if(days>=360) bOver360 += b;
+    });
+    document.getElementById('agingRow').innerHTML = `
+      <div class="stat-card"><div class="stat-label">90–180 Days</div><div class="stat-value ${b90_180>0?'neg':''}">${moneyShort(b90_180)}</div></div>
+      <div class="stat-card"><div class="stat-label">180–360 Days</div><div class="stat-value ${b180_360>0?'neg':''}">${moneyShort(b180_360)}</div></div>
+      <div class="stat-card"><div class="stat-label">360+ Days</div><div class="stat-value ${bOver360>0?'neg':''}">${moneyShort(bOver360)}</div></div>
+    `;
+  }
+  function rowHtml(j){
+    const bal = (+j.gross||0) - (+j.paid||0);
+    const sev = severity(j.collectionsCategory);
+    return `
+      <tr class="sev-${sev}">
+        <td class="col-name">${escapeHtml(j.name)}</td>
+        <td>${escapeHtml(j.jobNumber)}</td>
+        <td>${escapeHtml(j.market)}</td>
+        <td>${escapeHtml(j.contractDate)}</td>
+        <td>${escapeHtml(j.status)}</td>
+        <td class="col-num">${money(j.gross)}</td>
+        <td class="col-num">${money(j.paid)}</td>
+        <td class="baldue ${bal<0?'neg':''}">${money(bal)}</td>
+        <td><span class="badge ${sev}">${escapeHtml(badgeLabel(j.collectionsCategory))}</span></td>
+        <td>${escapeHtml(j.responsibility)}</td>
+        <td>${escapeHtml(j.nextAction)}</td>
+        <td class="col-notes">${escapeHtml(j.notes)}</td>
+      </tr>
+    `;
+  }
+  function renderTable(){
+    const list = filteredJobs();
+    document.getElementById('jobsBody').innerHTML = list.length
+      ? list.map(rowHtml).join('')
+      : `<tr><td colspan="12" class="empty-state">No jobs match your filters.</td></tr>`;
+    document.getElementById('resultCount').textContent = list.length + ' of ' + jobs.length + ' jobs';
+  }
+  function renderAll(){ renderStats(); renderTable(); }
+
+  function init(){
+    const d = new Date(SNAPSHOT_DATE + 'T00:00:00');
+    const label = d.toLocaleDateString('en-US',{weekday:'long', month:'long', day:'numeric', year:'numeric'});
+    document.getElementById('snapshotLine').textContent = 'Snapshot as of ' + label + ' — updated weekly, view only';
+    document.getElementById('snapshotBadge').textContent = SNAPSHOT_DATE;
+
+    const marketSel = document.getElementById('marketFilter');
+    marketSel.innerHTML = marketOptions().map(m=>`<option value="${escapeHtml(m)}">${m==='ALL'?'All Markets':m}</option>`).join('');
+    const categorySel = document.getElementById('categoryFilter');
+    categorySel.innerHTML = categoryOptions().map(c=>`<option value="${escapeHtml(c)}">${c==='ALL'?'All Categories':c}</option>`).join('');
+
+    document.getElementById('searchBox').addEventListener('input', e=>{ filters.search = e.target.value; renderAll(); });
+    marketSel.addEventListener('change', e=>{ filters.market = e.target.value; renderAll(); });
+    categorySel.addEventListener('change', e=>{ filters.category = e.target.value; renderAll(); });
+
+    renderAll();
+  }
+  init();
+})();
+</script>
+</body>
+</html>
