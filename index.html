@@ -94,6 +94,8 @@
     <select id="jobStatusFilter"></select>
     <select id="priorityFilter"></select>
     <select id="repFilter" style="display:none"></select>
+    <select id="frontPayoutFilter" style="display:none"></select>
+    <select id="backPayoutFilter" style="display:none"></select>
     <select id="cancelMarketFilter" style="display:none"></select>
     <select id="cancelTypeFilter" style="display:none"></select>
     <div class="spacer"></div>
@@ -121,7 +123,7 @@ if(LOGO_DATA_URL){
 (function(){
   const SNAPSHOT_DATE = "2026-08-18";
   let activeTab = 'dashboard';
-  let filters = { search:'', market:'ALL', jobStatus:'ALL', priority:'ALL', rep:'ALL' };
+  let filters = { search:'', market:'ALL', jobStatus:'ALL', priority:'ALL', rep:'ALL', frontPayout:'ALL', backPayout:'ALL' };
   let cancelFilters = { search:'', market:'ALL', cancelType:'ALL' };
   const money = n => (isNaN(n)?0:n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
   const moneyShort = n => Math.round(n||0).toLocaleString('en-US');
@@ -215,6 +217,8 @@ if(LOGO_DATA_URL){
       if(filters.jobStatus!=='ALL' && j.jobStatus!==filters.jobStatus) return false;
       if(filters.priority!=='ALL' && j.priorityLevel!==filters.priority) return false;
       if(filters.rep!=='ALL' && j.salesRep!==filters.rep) return false;
+      if(filters.frontPayout!=='ALL' && j.frontEndPayout!==filters.frontPayout) return false;
+      if(filters.backPayout!=='ALL' && j.backEndPayout!==filters.backPayout) return false;
       if(filters.search){
         const s = filters.search.toLowerCase();
         if(!(j.name.toLowerCase().includes(s) || String(j.jobNumber).toLowerCase().includes(s) || (j.notes||'').toLowerCase().includes(s) || (j.salesRep||'').toLowerCase().includes(s))) return false;
@@ -224,6 +228,17 @@ if(LOGO_DATA_URL){
   }
   function opts(field, excludeBlank){
     const set = Array.from(new Set(JOBS.map(j=>j[field]).filter(v=>excludeBlank?v:true))).sort();
+    return ['ALL', ...set];
+  }
+  function weekOpts(field){
+    const set = Array.from(new Set(JOBS.map(j=>j[field]).filter(v=>v)));
+    set.sort((a,b)=>{
+      const na = parseInt(String(a).replace(/\D/g,''),10), nb = parseInt(String(b).replace(/\D/g,''),10);
+      if(isNaN(na)&&isNaN(nb)) return String(a).localeCompare(String(b));
+      if(isNaN(na)) return 1;
+      if(isNaN(nb)) return -1;
+      return na-nb;
+    });
     return ['ALL', ...set];
   }
   function fillSelect(id, field, excludeBlank, allLabel, currentVal){
@@ -365,6 +380,8 @@ if(LOGO_DATA_URL){
     document.getElementById('jobStatusFilter').style.display = activeTab==='dashboard' ? '' : 'none';
     document.getElementById('priorityFilter').style.display = activeTab==='dashboard' ? '' : 'none';
     document.getElementById('repFilter').style.display = activeTab==='commissions' ? '' : 'none';
+    document.getElementById('frontPayoutFilter').style.display = activeTab==='commissions' ? '' : 'none';
+    document.getElementById('backPayoutFilter').style.display = activeTab==='commissions' ? '' : 'none';
     document.getElementById('cancelMarketFilter').style.display = activeTab==='cancellations' ? '' : 'none';
     document.getElementById('cancelTypeFilter').style.display = activeTab==='cancellations' ? '' : 'none';
     document.getElementById('secLabel1').style.display = activeTab==='dashboard' ? '' : 'none';
@@ -415,6 +432,10 @@ if(LOGO_DATA_URL){
     fillSelect('jobStatusFilter','jobStatus',true,'All Job Statuses','ALL');
     fillSelect('priorityFilter','priorityLevel',true,'All Priorities','ALL');
     fillSelect('repFilter','salesRep',true,'All Sales Reps','ALL');
+    const fpSel = document.getElementById('frontPayoutFilter');
+    fpSel.innerHTML = weekOpts('frontEndPayout').map(m=>`<option value="${escapeHtml(m)}" ${filters.frontPayout===m?'selected':''}>${m==='ALL'?'All Front End Payout':m}</option>`).join('');
+    const bpSel = document.getElementById('backPayoutFilter');
+    bpSel.innerHTML = weekOpts('backEndPayout').map(m=>`<option value="${escapeHtml(m)}" ${filters.backPayout===m?'selected':''}>${m==='ALL'?'All Back End Payout':m}</option>`).join('');
     const cmSel = document.getElementById('cancelMarketFilter');
     cmSel.innerHTML = cancelOpts('market').map(m=>`<option value="${escapeHtml(m)}" ${cancelFilters.market===m?'selected':''}>${m==='ALL'?'All Markets':m}</option>`).join('');
     const ctSel = document.getElementById('cancelTypeFilter');
@@ -424,6 +445,8 @@ if(LOGO_DATA_URL){
     document.getElementById('jobStatusFilter').addEventListener('change', e=>{ filters.jobStatus=e.target.value; renderAll(); });
     document.getElementById('priorityFilter').addEventListener('change', e=>{ filters.priority=e.target.value; renderAll(); });
     document.getElementById('repFilter').addEventListener('change', e=>{ filters.rep=e.target.value; renderAll(); });
+    fpSel.addEventListener('change', e=>{ filters.frontPayout=e.target.value; renderAll(); });
+    bpSel.addEventListener('change', e=>{ filters.backPayout=e.target.value; renderAll(); });
     cmSel.addEventListener('change', e=>{ cancelFilters.market=e.target.value; renderAll(); });
     ctSel.addEventListener('change', e=>{ cancelFilters.cancelType=e.target.value; renderAll(); });
     document.querySelectorAll('.tab-btn').forEach(btn=>{ btn.addEventListener('click', ()=>{ activeTab = btn.getAttribute('data-tab'); filters.search=''; cancelFilters.search=''; document.getElementById('searchBox').value=''; renderAll(); }); });
