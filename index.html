@@ -125,6 +125,7 @@ if(LOGO_DATA_URL){
   let cancelFilters = { search:'', market:'ALL', cancelType:'ALL' };
   const money = n => (isNaN(n)?0:n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
   const moneyShort = n => Math.round(n||0).toLocaleString('en-US');
+  const pctFmt = v => { const n = parseFloat(v); return isNaN(n) ? '' : Math.round(n*100) + '%'; };
   function escapeHtml(s){ return String(s===undefined||s===null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
   function priSeverity(p){
     p = (p||'').toLowerCase();
@@ -285,7 +286,7 @@ if(LOGO_DATA_URL){
     return `<tr class="sev-${sev}">
       <td class="col-name">${escapeHtml(j.name)}</td><td>${escapeHtml(j.jobNumber)}</td><td>${escapeHtml(j.market)}</td>
       <td>${escapeHtml(j.salesRep)}</td><td>${escapeHtml(j.contractDate)}</td><td>${escapeHtml(j.jobStatus)}</td>
-      <td>${escapeHtml(j.fundingSource)}</td><td class="col-num">${money(j.msrp)}</td><td>${escapeHtml(j.pctMSRP)}</td>
+      <td>${escapeHtml(j.fundingSource)}</td><td class="col-num">${money(j.msrp)}</td><td>${pctFmt(j.pctMSRP)}</td>
       <td class="col-num">${money(j.gross)}</td><td class="col-num">${money(j.paid)}</td>
       <td class="baldue ${bal<0?'neg':''}">${money(bal)}</td>
       <td><span class="badge ${priSeverity(j.priorityLevel)}">${escapeHtml(priLabel(j.priorityLevel))}</span></td>
