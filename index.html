@@ -101,7 +101,7 @@
     <div class="spacer"></div>
     <div class="result-count" id="resultCount"></div>
   </div>
-  <div class="table-wrap">
+  <div class="table-wrap" id="mainTableWrap">
     <table id="jobsTable"><thead id="tableHead"></thead><tbody id="jobsBody"></tbody></table>
   </div>
 </div>
@@ -211,20 +211,25 @@ if(LOGO_DATA_URL){
     else if(!ad && bd) return 1;
     return (a.name||'').localeCompare(b.name||'');
   }
-  function filteredJobs(){
+  function filteredJobsBase(){
     return JOBS.filter(j=>{
       if(filters.market!=='ALL' && j.market!==filters.market) return false;
       if(filters.jobStatus!=='ALL' && j.jobStatus!==filters.jobStatus) return false;
       if(filters.priority!=='ALL' && j.priorityLevel!==filters.priority) return false;
       if(filters.rep!=='ALL' && j.salesRep!==filters.rep) return false;
-      if(filters.frontPayout!=='ALL' && j.frontEndPayout!==filters.frontPayout) return false;
-      if(filters.backPayout!=='ALL' && j.backEndPayout!==filters.backPayout) return false;
       if(filters.search){
         const s = filters.search.toLowerCase();
         if(!(j.name.toLowerCase().includes(s) || String(j.jobNumber).toLowerCase().includes(s) || (j.notes||'').toLowerCase().includes(s) || (j.salesRep||'').toLowerCase().includes(s))) return false;
       }
       return true;
     }).sort(jobSortCmp);
+  }
+  function filteredJobs(){
+    return filteredJobsBase().filter(j=>{
+      if(filters.frontPayout!=='ALL' && j.frontEndPayout!==filters.frontPayout) return false;
+      if(filters.backPayout!=='ALL' && j.backEndPayout!==filters.backPayout) return false;
+      return true;
+    });
   }
   function opts(field, excludeBlank){
     const set = Array.from(new Set(JOBS.map(j=>j[field]).filter(v=>excludeBlank?v:true))).sort();
@@ -280,17 +285,19 @@ if(LOGO_DATA_URL){
     document.getElementById('marketRow').style.display='';
     document.getElementById('agingRow').style.display='';
   }
-  function renderStatsCommissions(list){
+  function renderStatsCommissions(list, dualMode, totFrontOverride, totBackOverride){
     const totMSRP = list.reduce((a,j)=>a+(+j.msrp||0),0);
     const totComm = list.reduce((a,j)=>a+(+j.totalComm||0),0);
-    const totFront = list.reduce((a,j)=>a+(+j.frontEnd||0),0);
-    const totBack = list.reduce((a,j)=>a+(+j.backEnd||0),0);
+    const totFront = dualMode ? totFrontOverride : list.reduce((a,j)=>a+(+j.frontEnd||0),0);
+    const totBack = dualMode ? totBackOverride : list.reduce((a,j)=>a+(+j.backEnd||0),0);
+    const showBackCard = filters.frontPayout==='ALL' || filters.backPayout!=='ALL';
     document.getElementById('statRow').innerHTML = `
       <div class="stat-card"><div class="stat-label">Jobs</div><div class="stat-value">${list.length}</div></div>
       <div class="stat-card"><div class="stat-label">Total MSRP</div><div class="stat-value">${moneyShort(totMSRP)}</div></div>
       <div class="stat-card"><div class="stat-label">Total Comm</div><div class="stat-value pos">${moneyShort(totComm)}</div></div>
       <div class="stat-card"><div class="stat-label">Front End</div><div class="stat-value">${moneyShort(totFront)}</div></div>
-      <div class="stat-card"><div class="stat-label">Back End</div><div class="stat-value">${moneyShort(totBack)}</div></div>
+      ${showBackCard ? `<div class="stat-card"><div class="stat-label">Back End</div><div class="stat-value">${moneyShort(totBack)}</div></div>` : ''}
+      ${dualMode ? `<div class="stat-card"><div class="stat-label">Week Total</div><div class="stat-value pos">${moneyShort(totFront+totBack)}</div></div>` : ''}
     `;
     document.getElementById('secLabel1').style.display='none';
     document.getElementById('secLabel2').style.display='none';
@@ -392,6 +399,8 @@ if(LOGO_DATA_URL){
   }
   function renderAll(){
     renderTabs();
+    const mtw = document.getElementById('mainTableWrap');
+    if(!document.getElementById('jobsTable')){ mtw.innerHTML = `<table id="jobsTable"><thead id="tableHead"></thead><tbody id="jobsBody"></tbody></table>`; }
     if(activeTab==='dashboard'){
       const list = filteredJobs();
       document.getElementById('resultCount').textContent = list.length + ' of ' + JOBS.length + ' jobs';
@@ -403,15 +412,37 @@ if(LOGO_DATA_URL){
       </tr>`;
       document.getElementById('jobsBody').innerHTML = list.length ? list.map(dashRowHtml).join('') : `<tr><td colspan="15" class="empty-state">No jobs match your filters.</td></tr>`;
     } else if(activeTab==='commissions'){
-      const list = filteredJobs();
-      document.getElementById('resultCount').textContent = list.length + ' of ' + JOBS.length + ' jobs';
-      renderStatsCommissions(list);
-      document.getElementById('tableHead').innerHTML = `<tr>
+      const dualMode = filters.frontPayout!=='ALL' && filters.backPayout!=='ALL';
+      const commHead = `<tr>
         <th class="col-name">Name</th><th>Job #</th><th>Sales Rep</th><th>MSRP</th><th>Gross $</th>
         <th>Referral 3%</th><th>Re Hash 1%</th><th>Self Gen 8%</th><th>BFB/Comp Bid 1%</th><th>Clip %</th>
         <th>Total Comm</th><th>Front End</th><th>Back End</th><th class="col-notes">Comm Notes</th><th>Measure</th><th>Front End Payout</th><th>Back End Payout</th>
       </tr>`;
-      document.getElementById('jobsBody').innerHTML = list.length ? list.map(commRowHtml).join('') : `<tr><td colspan="16" class="empty-state">No jobs match your filters.</td></tr>`;
+      if(dualMode){
+        const base = filteredJobsBase();
+        const frontList = base.filter(j=>j.frontEndPayout===filters.frontPayout);
+        const backList = base.filter(j=>j.backEndPayout===filters.backPayout);
+        const totFront = frontList.reduce((a,j)=>a+(+j.frontEnd||0),0);
+        const totBack = backList.reduce((a,j)=>a+(+j.backEnd||0),0);
+        const seen = new Set();
+        const union = [];
+        [...frontList, ...backList].forEach(j=>{ if(!seen.has(j.id)){ seen.add(j.id); union.push(j); } });
+        document.getElementById('resultCount').textContent = union.length + ' of ' + JOBS.length + ' jobs';
+        renderStatsCommissions(union, true, totFront, totBack);
+        document.getElementById('mainTableWrap').innerHTML = `
+          <div style="font-weight:600; color:var(--ink-soft); margin:14px 14px 8px; text-transform:uppercase; font-size:12px; letter-spacing:.04em;">Front End Payout — ${escapeHtml(filters.frontPayout)}</div>
+          <table><thead>${commHead}</thead><tbody>${frontList.length?frontList.map(commRowHtml).join(''):`<tr><td colspan="17" class="empty-state">No jobs match this week.</td></tr>`}</tbody></table>
+          <div style="font-weight:600; color:var(--ink-soft); margin:18px 14px 8px; text-transform:uppercase; font-size:12px; letter-spacing:.04em;">Back End Payout — ${escapeHtml(filters.backPayout)}</div>
+          <table><thead>${commHead}</thead><tbody>${backList.length?backList.map(commRowHtml).join(''):`<tr><td colspan="17" class="empty-state">No jobs match this week.</td></tr>`}</tbody></table>
+        `;
+      } else {
+        document.getElementById('mainTableWrap').innerHTML = `<table id="jobsTable"><thead id="tableHead"></thead><tbody id="jobsBody"></tbody></table>`;
+        const list = filteredJobs();
+        document.getElementById('resultCount').textContent = list.length + ' of ' + JOBS.length + ' jobs';
+        renderStatsCommissions(list, false);
+        document.getElementById('tableHead').innerHTML = commHead;
+        document.getElementById('jobsBody').innerHTML = list.length ? list.map(commRowHtml).join('') : `<tr><td colspan="17" class="empty-state">No jobs match your filters.</td></tr>`;
+      }
     } else {
       const list = filteredCancellations();
       document.getElementById('resultCount').textContent = list.length + ' of ' + CANCELLATIONS.length + ' cancellations';
