@@ -287,6 +287,7 @@ if(LOGO_DATA_URL){
   }
   function renderStatsCommissions(list, dualMode, totFrontOverride, totBackOverride){
     const totMSRP = list.reduce((a,j)=>a+(+j.msrp||0),0);
+    const totGross = list.reduce((a,j)=>a+(+j.gross||0),0);
     const totComm = list.reduce((a,j)=>a+(+j.totalComm||0),0);
     const totFront = dualMode ? totFrontOverride : list.reduce((a,j)=>a+(+j.frontEnd||0),0);
     const totBack = dualMode ? totBackOverride : list.reduce((a,j)=>a+(+j.backEnd||0),0);
@@ -294,6 +295,7 @@ if(LOGO_DATA_URL){
     document.getElementById('statRow').innerHTML = `
       <div class="stat-card"><div class="stat-label">Jobs</div><div class="stat-value">${list.length}</div></div>
       <div class="stat-card"><div class="stat-label">Total MSRP</div><div class="stat-value">${moneyShort(totMSRP)}</div></div>
+      <div class="stat-card"><div class="stat-label">Gross $</div><div class="stat-value">${moneyShort(totGross)}</div></div>
       <div class="stat-card"><div class="stat-label">Total Comm</div><div class="stat-value pos">${moneyShort(totComm)}</div></div>
       <div class="stat-card"><div class="stat-label">Front End</div><div class="stat-value">${moneyShort(totFront)}</div></div>
       ${showBackCard ? `<div class="stat-card"><div class="stat-label">Back End</div><div class="stat-value">${moneyShort(totBack)}</div></div>` : ''}
@@ -426,7 +428,7 @@ if(LOGO_DATA_URL){
         const totBack = backList.reduce((a,j)=>a+(+j.backEnd||0),0);
         const seen = new Set();
         const union = [];
-        [...frontList, ...backList].forEach(j=>{ if(!seen.has(j.id)){ seen.add(j.id); union.push(j); } });
+        [...frontList, ...backList].forEach(j=>{ const key = j.jobNumber||j.id; if(!seen.has(key)){ seen.add(key); union.push(j); } });
         document.getElementById('resultCount').textContent = union.length + ' of ' + JOBS.length + ' jobs';
         renderStatsCommissions(union, true, totFront, totBack);
         document.getElementById('mainTableWrap').innerHTML = `
