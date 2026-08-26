@@ -106,6 +106,14 @@
     return ['ALL', ...set];
   }
 
+  function filteredJobs(){
+    return JOBS.filter(j=>{
+      if(filters.frontPayout!=='ALL' && j.frontEndPayout!==filters.frontPayout) return false;
+      if(filters.backPayout!=='ALL' && j.backEndPayout!==filters.backPayout) return false;
+      return true;
+    });
+  }
+
   function commRowHtml(j){
     return `<tr>
       <td class="col-name">${escapeHtml(j.name)}</td><td>${escapeHtml(j.jobNumber)}</td>
@@ -166,10 +174,11 @@
       `;
     } else {
       document.getElementById('mainTableWrap').innerHTML = `<table id="jobsTable"><thead id="tableHead"></thead><tbody id="jobsBody"></tbody></table>`;
-      document.getElementById('resultCount').textContent = JOBS.length + ' of ' + JOBS.length + ' jobs';
-      renderStats(JOBS, false);
+      const list = filteredJobs();
+      document.getElementById('resultCount').textContent = list.length + ' of ' + JOBS.length + ' jobs';
+      renderStats(list, false);
       document.getElementById('tableHead').innerHTML = commHead;
-      document.getElementById('jobsBody').innerHTML = JOBS.length ? JOBS.map(commRowHtml).join('') : `<tr><td colspan="16" class="empty-state">No commission activity.</td></tr>`;
+      document.getElementById('jobsBody').innerHTML = list.length ? list.map(commRowHtml).join('') : `<tr><td colspan="16" class="empty-state">No jobs match this filter.</td></tr>`;
     }
   }
 
