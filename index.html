@@ -74,6 +74,8 @@
     </div>
   </div>
   <div class="stat-row" id="statRow"></div>
+  <div class="section-label" id="clipMonthLabel" style="display:none;">Average Clip % by Month (Contract Date)</div>
+  <div class="stat-row" id="clipMonthRow" style="display:none;"></div>
   <div class="section-label" id="secLabel1">Balance Due by Market</div>
   <div class="stat-row" id="marketRow"></div>
   <div class="section-label" id="secLabel2">Balance Due by Age (from contract date)</div>
@@ -129,6 +131,20 @@ if(LOGO_DATA_URL){
   const moneyShort = n => Math.round(n||0).toLocaleString('en-US');
   const pctFmt = v => { const n = parseFloat(v); return isNaN(n) ? '' : Math.round(n*100) + '%'; };
   const clipFmt = v => { const n = parseFloat(v); if(isNaN(n)) return ''; return (Math.round(n*100*100)/100) + '%'; };
+  const clipAvgFmt = v => (v*100).toFixed(2) + '%';
+  function avgClip(list){
+    const vals = list.map(j=>+j.clipPct||0).filter(v=>v>0 && v<=1);
+    if(!vals.length) return null;
+    return vals.reduce((a,b)=>a+b,0)/vals.length;
+  }
+  function avgClipByMonth(list, monthNum){
+    const sub = list.filter(j=>{
+      if(!j.contractDate) return false;
+      const m = parseInt(String(j.contractDate).slice(5,7),10);
+      return m===monthNum;
+    });
+    return avgClip(sub);
+  }
   const feColorStyle = c => { if(!c) return ''; const rgba = c==='red' ? 'rgba(232,99,111,0.38)' : (c==='yellow' ? 'rgba(240,184,64,0.38)' : 'rgba(47,198,180,0.38)'); return ` style="background-color:${rgba} !important"`; };
   function escapeHtml(s){ return String(s===undefined||s===null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
   function priSeverity(p){
@@ -284,6 +300,8 @@ if(LOGO_DATA_URL){
     document.getElementById('secLabel2').style.display='';
     document.getElementById('marketRow').style.display='';
     document.getElementById('agingRow').style.display='';
+    document.getElementById('clipMonthLabel').style.display='none';
+    document.getElementById('clipMonthRow').style.display='none';
   }
   function renderStatsCommissions(list, dualMode, totFrontOverride, totBackOverride){
     const totMSRP = list.reduce((a,j)=>a+(+j.msrp||0),0);
@@ -292,15 +310,27 @@ if(LOGO_DATA_URL){
     const totFront = dualMode ? totFrontOverride : list.reduce((a,j)=>a+(+j.frontEnd||0),0);
     const totBack = dualMode ? totBackOverride : list.reduce((a,j)=>a+(+j.backEnd||0),0);
     const showBackCard = filters.frontPayout==='ALL' || filters.backPayout!=='ALL';
+    const overallAvgClip = avgClip(list);
+    const juneAvgClip = avgClipByMonth(list, 6);
+    const julyAvgClip = avgClipByMonth(list, 7);
+    const augAvgClip = avgClipByMonth(list, 8);
     document.getElementById('statRow').innerHTML = `
       <div class="stat-card"><div class="stat-label">Jobs</div><div class="stat-value">${list.length}</div></div>
       <div class="stat-card"><div class="stat-label">Total MSRP</div><div class="stat-value">${moneyShort(totMSRP)}</div></div>
       <div class="stat-card"><div class="stat-label">Gross $</div><div class="stat-value">${moneyShort(totGross)}</div></div>
       <div class="stat-card"><div class="stat-label">Total Comm</div><div class="stat-value pos">${moneyShort(totComm)}</div></div>
+      <div class="stat-card"><div class="stat-label">Avg Clip %</div><div class="stat-value">${overallAvgClip!==null?clipAvgFmt(overallAvgClip):'—'}</div></div>
       <div class="stat-card"><div class="stat-label">Front End</div><div class="stat-value">${moneyShort(totFront)}</div></div>
       ${showBackCard ? `<div class="stat-card"><div class="stat-label">Back End</div><div class="stat-value">${moneyShort(totBack)}</div></div>` : ''}
       ${dualMode ? `<div class="stat-card"><div class="stat-label">Week Total</div><div class="stat-value pos">${moneyShort(totFront+totBack)}</div></div>` : ''}
     `;
+    document.getElementById('clipMonthRow').innerHTML = `
+      <div class="stat-card"><div class="stat-label">June</div><div class="stat-value">${juneAvgClip!==null?clipAvgFmt(juneAvgClip):'—'}</div></div>
+      <div class="stat-card"><div class="stat-label">July</div><div class="stat-value">${julyAvgClip!==null?clipAvgFmt(julyAvgClip):'—'}</div></div>
+      <div class="stat-card"><div class="stat-label">August</div><div class="stat-value">${augAvgClip!==null?clipAvgFmt(augAvgClip):'—'}</div></div>
+    `;
+    document.getElementById('clipMonthLabel').style.display='';
+    document.getElementById('clipMonthRow').style.display='';
     document.getElementById('secLabel1').style.display='none';
     document.getElementById('secLabel2').style.display='none';
     document.getElementById('marketRow').style.display='none';
@@ -397,6 +427,8 @@ if(LOGO_DATA_URL){
     document.getElementById('secLabel2').style.display = activeTab==='dashboard' ? '' : 'none';
     document.getElementById('marketRow').style.display = activeTab==='dashboard' ? '' : 'none';
     document.getElementById('agingRow').style.display = activeTab==='dashboard' ? '' : 'none';
+    document.getElementById('clipMonthLabel').style.display = activeTab==='commissions' ? '' : 'none';
+    document.getElementById('clipMonthRow').style.display = activeTab==='commissions' ? '' : 'none';
     document.getElementById('cancelWeekMonthWrap').style.display = activeTab==='cancellations' ? 'flex' : 'none';
   }
   function renderAll(){
